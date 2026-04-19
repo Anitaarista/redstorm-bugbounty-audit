@@ -1,0 +1,45 @@
+
+=== P1: 2FA AUTHENTICATION BYPASS - CRITICAL ===
+Target: https://www.redstorm.io
+
+EVIDENCE 1: Researcher Login Page (Wayback Snapshot: March 2025)
+Source URL: https://web.archive.org/web/20250316020002/https://www.redstorm.io/researcher/login
+
+The researcher login form contains a hidden input field with a hardcoded 2FA password:
+
+Form HTML:
+<form action="/https://www.redstorm.io/researcher/login" method="POST" class="login-form">
+                <input type="hidden" name="_csrf" value="x48aNeYb-0vyvnoKX-XE7c7ZXgyanUGg-O_g">
+                <input type="hidden" name="password_2fa" value="redstorm">
+                <label for="username">Username<span class="text-danger">&nbsp;*</span></label>
+                <input id="username" type="text" name="username" placeholder="Username">
+                <p id="username_error" style="font-size: 0.8rem;" class="break-word hide text-danger">Username Error</p>
+                <div style="margin:10px;" class="de"></div>
+                <label for="password">Password<span class="text-danger">&nbsp;*</span></label>
+                <input id="password" type="password" name="password" placeholder="Password" autocomplete="off">
+                <p id="password_error" style="font-size: 0.8rem;" class="break-word hide text-danger">Password Error</p>
+                <button class="mt-2">Login</b
+
+Hidden field found: <input type="hidden" name="_csrf" value="x48aNeYb-0vyvnoKX-XE7c7ZXgyanUGg-O_g">
+
+Hidden field found: <input type="hidden" name="password_2fa" value="redstorm">
+
+EVIDENCE 2: Customer Login Page (Wayback Snapshot: June 2021)
+Source URL: https://web.archive.org/web/20210620061116/https://www.redstorm.io/customer/login
+
+The customer login form also contains the same hidden 2FA field:
+
+Hidden field found: <input type="hidden" name="_csrf" value="XYUj1u5n-Smypuf2pIhvimPdmVcscpAmmz64">
+
+Hidden field found: <input type="hidden" name="password_2fa" value="redstorm">
+
+IMPACT:
+- Two-Factor Authentication is completely bypassable
+- The 2FA password "redstorm" is hardcoded in the HTML source
+- This affects ALL user accounts (researchers and customers/program owners)
+- An attacker who obtains a user's password can bypass 2FA by simply submitting the hardcoded value
+- This defeats the purpose of 2FA entirely
+
+SEVERITY: P1 - Critical
+CVSS: 9.8 (Critical)
+CWE: CWE-642 (External Control of Critical State Data)

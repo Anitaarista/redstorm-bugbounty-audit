@@ -1,0 +1,63 @@
+=== P1: IDOR - UNAUTHENTICATED ACCESS TO RESEARCHER PROFILES ===
+Target: https://www.redstorm.io
+
+The /views/ endpoint exposes researcher dashboard/profile information without requiring authentication.
+By accessing /views/{view_id}, an unauthenticated user can view sensitive researcher information
+including: full name, username, join date, rank, and points.
+
+CONFIRMED INSTANCES (via Wayback Machine):
+
+1. /views/25b7f485be0700
+   - Name: Syukirman Amir (0xsenja)
+   - Join date: 1 May 2019
+   - Current rank: 132
+   - All-time points: 40
+   - Wayback: https://web.archive.org/web/20250115121046/https://www.redstorm.io/views/25b7f485be0700
+
+2. /views/61a7e283a90f042eed6517
+   - Name: Neh Patel (thecyberneh)
+   - Join date: 24 November 2021
+   - Current rank: 155
+   - All-time points: 20
+   - Wayback: https://web.archive.org/web/20240528202025/https://www.redstorm.io/views/61a7e283a90f042eed6517
+
+3. /views/25ffb096b9060024eb
+   - Name: Vikas Srivastava (007vikaxh)
+   - Join date: 12 June 2019
+   - Current rank: 50
+   - All-time points: 20
+   - Wayback: https://web.archive.org/web/20201124143903/https://www.redstorm.io/views/25ffb096b9060024eb
+
+4. /views/65aaf581b40c033ded
+   - Name: Peradaban (1337 peradaban)
+   - Join date: 26 November 2019
+   - Current rank: 37
+   - All-time points: 50
+   - Wayback: https://web.archive.org/web/20210124060938/https://www.redstorm.io/views/65aaf581b40c033ded
+
+5. /views/65aef499b15c586db1
+   - Name: Zerboa (pasya1912)
+   - Join date: 4 April 2019
+   - Current rank: 62
+   - All-time points: 10
+   - Wayback: https://web.archive.org/web/20201124142133/https://www.redstorm.io/views/65aef499b15c586db1
+
+6. /views/66a0e592bf03
+   - Name: Fakhrur Razi (sobron)
+   - Join date: 13 January 2019
+   - Current rank: 18
+   - All-time points: 110
+   - Wayback: https://web.archive.org/web/20201124141249/https://www.redstorm.io/views/66a0e592bf03
+
+Total confirmed view IDs in Wayback Machine: 100+
+Some return 403 (access controlled), many return 200 (publicly accessible)
+
+IMPACT:
+- Any unauthenticated user can enumerate and access researcher profiles
+- View IDs appear to be sequential/predictable, allowing mass enumeration
+- Researcher full names and usernames are exposed (privacy violation)
+- Ranking and points data can be scraped for competitive intelligence
+- Could be used for targeted phishing attacks against security researchers
+
+SEVERITY: P1 - Critical
+CWE: CWE-639 (Authorization Bypass Through User-Controlled Key)

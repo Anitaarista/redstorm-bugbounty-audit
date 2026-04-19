@@ -1,0 +1,116 @@
+=== P1: ORIGIN IP DISCLOSURE + WAF BYPASS ===
+Target: https://www.redstorm.io
+
+EVIDENCE: CSP Header Leaks Internal Infrastructure
+
+The Content-Security-Policy header from the early Wayback Machine snapshot
+(https://web.archive.org/web/20190427134929id_/https://www.redstorm.io/) reveals
+the origin server's internal domain and WebSocket endpoints:
+
+CSP connect-src directive contains:
+- ws://localhost:3000                    (Local dev server)
+- ws://redstorm-stable.smtapps.net      (Internal staging server)
+- wss://redstorm-stable.smtapps.net     (Internal staging server WSS)
+- ws://demo.redstorm.io                 (Demo WebSocket)
+- wss://demo.redstorm.io                (Demo WSS)
+- ws://www.redstorm.io / wss://www.redstorm.io
+
+DNS Resolution of leaked domain:
+- redstorm-stable.smtapps.net -> 103.10.61.120
+- redstorm.smtapps.net -> 103.10.61.120
+- admin.smtapps.net -> 103.10.61.120
+- api.smtapps.net -> 103.10.61.120
+- staging.smtapps.net -> 103.10.61.120
+- dev.smtapps.net -> 103.10.61.120
+
+Origin Server: 103.10.61.120 (DigitalOcean)
+Nameservers: ns1/ns2/ns3.digitalocean.com
+
+=== WAF BYPASS CONFIRMED ===
+
+By accessing the origin server directly at 103.10.61.120, the Cloudflare WAF
+is completely bypassed. The origin server responds to HTTP/HTTPS requests:
+
+HTTP Response:
+$ curl -sk -H "Host: www.redstorm.io" http://103.10.61.120/researcher/login
+HTTP/1.1 302 Found
+Server: Apache/2.4.43 (Ubuntu)
+Location: https://www.smooets.com/researcher/login
+
+HTTPS Response (with -k to ignore cert mismatch):
+$ curl -sk -H "Host: www.redstorm.io" https://103.10.61.120/phpinfo.php
+HTTP 200 - phpinfo() page displayed!
+
+=== phpinfo.php EXPOSED ON ORIGIN SERVER ===
+
+URL: https://103.10.61.120/phpinfo.php (with Host: www.redstorm.io header)
+
+Critical information disclosed:
+- PHP Version: 7.3.26 (END OF LIFE - no security updates since Dec 2020)
+- Server API: FPM/FastCGI
+- Document Root: /home/wgs-dev/api-smartchecking/public
+- open_basedir: NO VALUE (can read any file on the server)
+- Xdebug: ENABLED (debug tool in production!)
+- Loaded Config: /etc/php/7.3/fpm/php.ini
+- HOME: /var/www
+- Server: Apache/2.4.43 (Ubuntu)
+
+=== LARAVEL DEBUG MODE ENABLED IN PRODUCTION ===
+
+All HTTPS endpoints on the origin server return 500 errors with full stack traces:
+
+Error: Class 'Tymon\JWTAuth\Providers\LumenServiceProvider' not found
+
+Stack trace reveals:
+- /home/wgs-dev/api-smartchecking/bootstrap/app.php:100
+- /home/wgs-dev/api-smartchecking/public/index.php:14
+- /home/wgs-dev/api-smartchecking/vendor/laravel/lumen-framework/src/Application.php:223
+
+Application: api-smartchecking (Lumen/Laravel micro-framework)
+User: wgs-dev
+
+=== MONGODB PORT EXPOSED ===
+
+Port 27017 is open on the origin server (103.10.61.120):
+$ curl -sk http://103.10.61.120:27017/
+"It looks like you are trying to access MongoDB over HTTP on the native driver port."
+
+MongoDB requires authentication but the port is publicly accessible.
+Wire version 6 = MongoDB 3.6 (also EOL)
+
+=== CORS MISCONFIGURATION ===
+
+Original response headers show:
+access-control-allow-origin: http://www.redstorm.io/
+access-control-allow-origin: http://www.redstorm.io
+access-control-allow-methods: PUT, GET, POST, DELETE
+access-control-allow-headers: access-control-allow-origin, content-type
+
+Issues:
+1. ACAO includes both with and without trailing slash (inconsistent)
+2. ACAM allows all CRUD methods
+3. ACAH includes 'access-control-allow-origin' itself (misconfiguration)
+4. No ACAC (credentials) header specified
+
+=== OTHER HEADER FINDINGS ===
+
+X-Powered-By: RedStorm System
+Session cookie: REDSTORM CORP=s:... (express-session format)
+CSRF tokens: Multiple _csrf and XSRF-TOKEN cookies set
+Cookie: __cfduid (Cloudflare)
+Referrer-Policy: same-origin
+X-Frame-Options: SAMEORIGIN
+
+IMPACT:
+1. Complete WAF bypass - all requests to origin bypass Cloudflare protections
+2. phpinfo.php exposes server configuration details
+3. Debug mode reveals application source code paths and structure
+4. MongoDB port exposed to the internet
+5. EOL PHP version with known vulnerabilities
+6. Xdebug enabled allows remote debugging
+7. Origin IP can be targeted for DDoS attacks (bypassing Cloudflare)
+8. Internal infrastructure (smtapps.net) fully mapped
+
+SEVERITY: P1 - Critical
+CWE: CWE-200 (Information Exposure)
+CWE- CWE-933 (OWASP Top 10 - Security Misconfiguration)

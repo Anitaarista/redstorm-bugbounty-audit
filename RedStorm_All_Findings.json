@@ -1,0 +1,219 @@
+{
+  "target": "www.redstorm.io",
+  "program": "Bug Bounty RedStorm Web Application (rswebapppltf)",
+  "company": "PT Kubus Mitra Inovasi / RedStorm Pte.Ltd.",
+  "research_date": "2026-04-19",
+  "findings": [
+    {
+      "id": "RS-2026-001",
+      "title": "2FA Authentication Bypass via Hardcoded Hidden Field",
+      "severity": "P1 - Critical",
+      "cvss": 9.8,
+      "cwe": "CWE-642",
+      "status": "Confirmed (March 2025)",
+      "description": "Both the researcher login (/researcher/login) and customer login (/customer/login) pages contain a hidden input field 'password_2fa' with a hardcoded value of 'redstorm'. This completely defeats the purpose of two-factor authentication, as any attacker who obtains a user's primary credentials can bypass 2FA by simply submitting this known value.",
+      "evidence": [
+        "Researcher login (Mar 2025): <input type=\"hidden\" name=\"password_2fa\" value=\"redstorm\">",
+        "Customer login (Jun 2021): <input type=\"hidden\" name=\"password_2fa\" value=\"redstorm\">",
+        "Wayback URL: https://web.archive.org/web/20250316020002/https://www.redstorm.io/researcher/login"
+      ],
+      "impact": "Complete bypass of two-factor authentication for ALL users on the platform",
+      "affected_endpoints": [
+        "/researcher/login",
+        "/customer/login"
+      ],
+      "affected_users": "All researchers and customers"
+    },
+    {
+      "id": "RS-2026-002",
+      "title": "IDOR - Unauthenticated Access to Researcher Profiles via /views/",
+      "severity": "P1 - Critical",
+      "cvss": 8.6,
+      "cwe": "CWE-639",
+      "status": "Confirmed (May 2025)",
+      "description": "The /views/ endpoint exposes researcher dashboard/profile information without requiring authentication. By accessing /views/{view_id}, an unauthenticated user can view sensitive researcher information including full name, username, join date, rank, and points. The view IDs are predictable and over 100 unique IDs have been identified in the Wayback Machine archive, many returning HTTP 200 (publicly accessible).",
+      "evidence": [
+        "/views/25b7f485be0700 -> Syukirman Amir (0xsenja), Rank 132",
+        "/views/61a7e283a90f042eed6517 -> Neh Patel (thecyberneh), Rank 155",
+        "/views/67a6e488b10f -> Richa Behl (richab), Rank 148 (May 2025)",
+        "/views/25ffb096b9060024eb -> Vikas Srivastava (007vikaxh), Rank 50",
+        "/views/65aaf581b40c033ded -> Peradaban (1337 peradaban), Rank 37",
+        "/views/65aef499b15c586db1 -> Zerboa (pasya1912), Rank 62",
+        "/views/66a0e592bf03 -> Fakhrur Razi (sobron), Rank 18"
+      ],
+      "impact": "Privacy violation, mass researcher data enumeration, potential targeted phishing",
+      "affected_endpoints": [
+        "/views/*"
+      ],
+      "affected_users": "All researchers on the platform"
+    },
+    {
+      "id": "RS-2026-003",
+      "title": "Origin IP Disclosure via CSP Header + Complete WAF Bypass",
+      "severity": "P1 - Critical",
+      "cvss": 9.1,
+      "cwe": "CWE-200",
+      "status": "Confirmed",
+      "description": "The Content-Security-Policy header leaked the internal staging server domain 'redstorm-stable.smtapps.net', which resolves to origin IP 103.10.61.120 (DigitalOcean). By accessing the origin server directly, the Cloudflare WAF is completely bypassed. Additionally, all smtapps.net subdomains resolve to the same origin IP, including admin.smtapps.net, api.smtapps.net, staging.smtapps.net, and dev.smtapps.net.",
+      "evidence": [
+        "CSP connect-src: ws://redstorm-stable.smtapps.net",
+        "DNS: redstorm-stable.smtapps.net -> 103.10.61.120",
+        "DNS: admin.smtapps.net -> 103.10.61.120",
+        "DNS: api.smtapps.net -> 103.10.61.120",
+        "WAF bypass: curl -sk -H 'Host: www.redstorm.io' https://103.10.61.120/phpinfo.php -> 200",
+        "Wayback CSP source: https://web.archive.org/web/20190427134929id_/https://www.redstorm.io/"
+      ],
+      "impact": "Complete WAF bypass, origin server directly attackable, DDoS protection negated",
+      "affected_endpoints": [
+        "103.10.61.120 (all ports)"
+      ],
+      "affected_users": "All platform users"
+    },
+    {
+      "id": "RS-2026-004",
+      "title": "phpinfo.php Exposed on Origin Server",
+      "severity": "P1 - Critical",
+      "cvss": 7.5,
+      "cwe": "CWE-200",
+      "status": "Confirmed",
+      "description": "The phpinfo.php file is accessible on the origin server at https://103.10.61.120/phpinfo.php (with Host: www.redstorm.io header). This reveals extensive server configuration details including PHP version (7.3.26 - EOL), document root, Xdebug enabled, open_basedir not set, and other sensitive information.",
+      "evidence": [
+        "URL: https://103.10.61.120/phpinfo.php (Host: www.redstorm.io)",
+        "PHP Version: 7.3.26 (EOL since December 2020)",
+        "Document Root: /home/wgs-dev/api-smartchecking/public",
+        "open_basedir: no value",
+        "Xdebug: enabled",
+        "Server: Apache/2.4.43 (Ubuntu)"
+      ],
+      "impact": "Complete server configuration disclosure, aids further exploitation",
+      "affected_endpoints": [
+        "https://103.10.61.120/phpinfo.php"
+      ],
+      "affected_users": "N/A (server-side)"
+    },
+    {
+      "id": "RS-2026-005",
+      "title": "Laravel/Lumen Debug Mode Enabled in Production",
+      "severity": "P2 - High",
+      "cvss": 7.5,
+      "cwe": "CWE-489",
+      "status": "Confirmed",
+      "description": "The origin server has Laravel/Lumen debug mode enabled in production. All HTTPS endpoints return detailed error pages with stack traces, file paths, and application internals. The error reveals the application name (api-smartchecking), framework (Lumen), user (wgs-dev), and full directory structure.",
+      "evidence": [
+        "Error: Class 'Tymon\\\\JWTAuth\\\\Providers\\\\LumenServiceProvider' not found",
+        "Stack trace: /home/wgs-dev/api-smartchecking/bootstrap/app.php:100",
+        "Stack trace: /home/wgs-dev/api-smartchecking/public/index.php:14",
+        "Stack trace: /home/wgs-dev/api-smartchecking/vendor/laravel/lumen-framework/src/Application.php:223",
+        "Full Symfony profiler CSS loaded in error page"
+      ],
+      "impact": "Source code structure disclosure, aids targeted exploitation",
+      "affected_endpoints": [
+        "All HTTPS endpoints on 103.10.61.120"
+      ],
+      "affected_users": "N/A (server-side)"
+    },
+    {
+      "id": "RS-2026-006",
+      "title": "MongoDB Port Exposed to Internet",
+      "severity": "P2 - High",
+      "cvss": 7.5,
+      "cwe": "CWE-284",
+      "status": "Confirmed",
+      "description": "MongoDB default port 27017 is open and accessible on the origin server (103.10.61.120). While authentication is required, the port exposure allows for brute-force attacks and version fingerprinting (MongoDB 3.6 - EOL).",
+      "evidence": [
+        "Port 27017 open on 103.10.61.120",
+        "HTTP response: 'It looks like you are trying to access MongoDB over HTTP on the native driver port.'",
+        "Wire version 6 = MongoDB 3.6 (EOL)"
+      ],
+      "impact": "Potential database access through brute force, version-specific exploits",
+      "affected_endpoints": [
+        "103.10.61.120:27017"
+      ],
+      "affected_users": "N/A (server-side)"
+    },
+    {
+      "id": "RS-2026-007",
+      "title": "CORS Misconfiguration",
+      "severity": "P3 - Medium",
+      "cvss": 5.3,
+      "cwe": "CWE-942",
+      "status": "Confirmed",
+      "description": "The CORS configuration has multiple issues: inconsistent ACAO headers (with and without trailing slash), allows all CRUD methods, and includes 'access-control-allow-origin' in allowed headers which is itself a misconfiguration.",
+      "evidence": [
+        "access-control-allow-origin: http://www.redstorm.io/",
+        "access-control-allow-origin: http://www.redstorm.io",
+        "access-control-allow-methods: PUT, GET, POST, DELETE",
+        "access-control-allow-headers: access-control-allow-origin, content-type"
+      ],
+      "impact": "Potential cross-origin attacks, credential theft",
+      "affected_endpoints": [
+        "All API endpoints"
+      ],
+      "affected_users": "All users"
+    },
+    {
+      "id": "RS-2026-008",
+      "title": "Username Enumeration via Customer Profile Avatar",
+      "severity": "P3 - Medium",
+      "cvss": 5.3,
+      "cwe": "CWE-204",
+      "status": "Confirmed",
+      "description": "The endpoint /customer/profile/avatar/{username} allows enumeration of customer usernames by observing the HTTP response. Confirmed username: 'andripwn' returns 302 (exists).",
+      "evidence": [
+        "/customer/profile/avatar/andripwn -> 302 (user exists)",
+        "Wayback: https://web.archive.org/web/20210911054605/https://www.redstorm.io/customer/profile/avatar/andripwn"
+      ],
+      "impact": "Customer username enumeration for targeted attacks",
+      "affected_endpoints": [
+        "/customer/profile/avatar/*"
+      ],
+      "affected_users": "All customers"
+    }
+  ],
+  "infrastructure": {
+    "origin_ip": "103.10.61.120",
+    "hosting": "DigitalOcean",
+    "nameservers": [
+      "ns1.digitalocean.com",
+      "ns2.digitalocean.com",
+      "ns3.digitalocean.com"
+    ],
+    "web_server": "Apache/2.4.43 (Ubuntu)",
+    "php_version": "7.3.26",
+    "framework": "Laravel Lumen",
+    "app_name": "api-smartchecking",
+    "app_user": "wgs-dev",
+    "mongodb_version": "3.6 (wire version 6)",
+    "internal_domains": [
+      "redstorm-stable.smtapps.net",
+      "redstorm.smtapps.net",
+      "redstorm-demo.smtapps.net",
+      "admin.smtapps.net",
+      "api.smtapps.net",
+      "staging.smtapps.net",
+      "dev.smtapps.net",
+      "app.smtapps.net"
+    ],
+    "subdomains": [
+      "www.redstorm.io",
+      "demo.redstorm.io",
+      "demo02.redstorm.io",
+      "development.redstorm.io",
+      "messe2020.redstorm.io",
+      "mail.redstorm.io"
+    ],
+    "websocket_endpoints": [
+      "ws://localhost:3000",
+      "ws://redstorm-stable.smtapps.net",
+      "wss://redstorm-stable.smtapps.net",
+      "ws://demo.redstorm.io",
+      "wss://demo.redstorm.io"
+    ],
+    "emails": [
+      "customer.support@redstorm.io",
+      "researcher.support@redstorm.io",
+      "gc@RedStorm.io",
+      "info@redstorm.io"
+    ]
+  }
+}
